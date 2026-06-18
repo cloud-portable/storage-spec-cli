@@ -1,0 +1,15 @@
+name: "Test Tier"
+description: "A stable mock tier definition for testing CLI features."
+operations:
+  - name: HeadBucket
+    link: "https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadBucket.html"
+  - name: PutObject
+    link: "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html"
+  - name: GetObject
+    link: "https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html"
+  - name: DeleteObject
+    link: "https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html"
+  - name: CopyObject
+    link: "https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html"
+  - name: DeleteObjects
+    link: "https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html"

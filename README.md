@@ -1,19 +1,15 @@
 # Storage Spec CLI
 
-`storage-spec` is a Node.js CLI tool designed to generate reproducible, native Smithy AST profiles summarizing the compatibility level of generic S3-compatible storage implementations. 
+`storage-spec` is a Node.js CLI tool designed to generate reproducible, native Smithy AST profiles and OpenAPI specifications summarizing the compatibility level of generic S3-compatible storage implementations.
 
-## Smithy vs. OpenAPI Specifications
+## The Spec Lifecycle
 
-This project works with two separate representations of the specification because they serve different purposes:
+The tool divides the specification lifecycle into four simple stages:
 
-*   **Smithy AST JSON (`rfc-storage-tier-1.smithy.json`)**:
-    *   *The Source of Truth*: Smithy is AWS's modern IDL (Interface Definition Language) designed specifically to model complex, protocol-heavy service APIs.
-    *   *Why we use it*: S3 is not a standard REST API. It routes different operations (like `CopyObject` and `PutObject`) to the exact same HTTP path and method via query parameters and headers, and relies on strict SigV4 cryptographic signature traits. Smithy models these AWS-specific traits, protocol choices, and structures perfectly.
-    *   *Primary Uses*: Service proxies, S3 client routing engines, and compliance capture tests.
-*   **OpenAPI 3.1 YAML (`rfc-storage-tier-1.openapi.yaml`)**:
-    *   *Developer-Friendly View*: A standard REST API representation of the subset.
-    *   *Why we generate it*: The standard REST tooling ecosystem is built around OpenAPI. By compiling our Smithy spec to OpenAPI, we enable developers to use standard API tools (such as Swagger, Redocly, and Postman), generate client libraries, and spin up mock servers out-of-the-box.
-    *   *Overlapping HTTP Semantics*: Because multiple S3 operations map to the same HTTP path and method (e.g. `PUT /{Bucket}/{Key}` handles both object uploads and server-side copying), the generator merges these behaviors into single, clean, combined OpenAPI paths with descriptive, flat markdown documentation explaining the different request headers required for each behavior.
+1. **`bootstrap`**: Extracts a barebones, 100% reproducible baseline Smithy AST from the canonical AWS S3 spec using a declarative YAML tier recipe.
+2. **`compile`**: Combines the barebones Smithy AST with curated Markdown documentation overrides to output documented Smithy AST and OpenAPI spec files.
+3. **`test`**: Runs containerized conformance tests against a S3-compatible target, outputting a standard JUnit XML report and execution metadata.
+4. **`diff`**: Compares any two Smithy AST profiles (e.g. AWS vs Portable Spec, or Portable Spec vs Provider Spec) to generate markdown compatibility/drift reports.
 
 ## Installation
 
@@ -27,47 +23,43 @@ npm link
 ```
 This registers the global `storage-spec` command on your machine. You can then run it from any directory (including the `storage` sibling repo) using `storage-spec <command>`.
 
-### Once Published (Public Registry)
-Once published, you can execute it directly from the registry:
-```bash
-npx @cloud-portable/storage-spec <command>
-```
-
 ## Usage
 
-Below, we assume the command `storage-spec` has been linked locally. (If running from the registry, prefix commands with `npx @cloud-portable/storage-spec`).
+Below, we assume the command `storage-spec` has been linked locally.
 
-### 1. `init`
-Downloads and caches the official canonical S3 Smithy Model (`s3-2006-03-01.json`). It reads a tiers markdown file (defaults to `s3-baseline.md`, or a custom path via `--source`) to identify the core capabilities an S3-compatible service is expected to support, generating a stripped baseline model.
+### 1. `bootstrap`
+Downloads and caches the official canonical S3 Smithy Model (`s3-2006-03-01.json`). It reads a structured YAML manifest (e.g., `tier-1.yaml`) to filter the shapes down to the allowed operations, strips all documentation/examples traits, and outputs a bare baseline model. Optionally extracts initial sanitized markdown documentation for each operation.
+
 ```bash
-# Initialize using the default baseline
-storage-spec init
+# Bootstrap using the default tier-1.yaml manifest
+storage-spec bootstrap
 
-# Initialize using a custom tiers definition (e.g. from the storage repository)
-storage-spec init --source ../storage/tiers.md
+# Bootstrap and extract initial sanitized markdown docs
+storage-spec bootstrap --source ../storage/tier-1.yaml --output ../storage/tier-1.smithy.bare.json --extract-docs ../storage/operations
 ```
-*Outputs: `specs/s3-baseline.json`*
+*Outputs: `tier-1.smithy.bare.json` (and initial `.md` templates)*
 
-### 2. `capture`
-Starts a programmable intercepting proxy that forwards traffic to your specified target HTTP API. Provides a hermetic way to test exact operation support. 
+### 2. `compile`
+Merges the barebones baseline Smithy AST with curated markdown documentation overrides and generates both fully-documented Smithy AST and OpenAPI 3.1 specifications.
 ```bash
-storage-spec capture --target http://localhost:9000 -- <your-test-command>
-# e.g. storage-spec capture --target http://localhost:9000 -- pytest s3-tests/
+storage-spec compile --input ../storage/tier-1.smithy.bare.json --docs ../storage/operations --output-smithy ../storage/tier-1.smithy.json --output-openapi ../storage/tier-1.openapi.yaml
 ```
-The test command is executed. The proxy observes the passing traffic, maps the wire operations back to Smithy, and synthesizes the subset of supported operations into a target Smithy AST profile.
+*Outputs: `tier-1.smithy.json`, `tier-1.openapi.yaml`*
 
-*Outputs: `specs/compatible-s3.json`*
-
-### 3. `diff`
-Performs an operation-level comparison between the generated compatibility profile and the canonical baseline. Generates a clear Markdown report demonstrating coverage percentages and specific unimplemented operations.
+### 3. `test`
+Runs containerized S3 conformance tests (based on Ceph s3-tests) against a target S3-compatible service using a Docker runner.
 ```bash
-storage-spec diff --output Report.md
+storage-spec test --target http://localhost:3900 \
+  --access-key <main_access_key> \
+  --secret-key <main_secret_key> \
+  --output ../storage/docs/garage-report
 ```
+*Outputs: `report.xml` and `metadata.json`*
 
-### 4. `openapi`
-Generates a standard OpenAPI 3.1 YAML specification from a Smithy AST JSON profile. It automatically handles HTTP operation overlapping by merging operations sharing path and method (such as `CopyObject` and `PutObject` on `PUT /{Bucket}/{Key}`) into clean, multi-behavior endpoints.
+### 4. `diff`
+Performs an operation-level comparison between two Smithy AST profiles and outputs a compatibility report.
 ```bash
-storage-spec openapi --input specs/s3-baseline.json --output specs/openapi.yaml
+# Compare standard portable spec against MinIO active profile
+storage-spec diff --baseline ../storage/tier-1.smithy.json --compatible test/fixtures/compatible-s3.json --output report.md
 ```
-*Outputs: `specs/openapi.yaml`*
-
+*Outputs: `report.md`*

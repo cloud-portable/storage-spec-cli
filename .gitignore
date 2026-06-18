@@ -5,11 +5,7 @@ node_modules/
 dist/
 
 # Test artifacts and caches
-specs/s3-2006-03-01.json
-specs/.cache.json
-specs/s3-baseline.json
-specs/compatible-s3.json
-specs/openapi.yaml
+specs/
 test-report.md
 
 # Logs

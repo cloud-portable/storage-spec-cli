@@ -2,11 +2,13 @@ import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-export async function diffCommand(opts: any) {
-    const specsDir = path.join(process.cwd(), 'specs');
-    const baselinePath = opts.baseline || path.join(specsDir, 's3-baseline.json');
-    const compatiblePath = opts.compatible || path.join(specsDir, 'compatible-s3.json');
-    const outputPath = opts.output || path.join(process.cwd(), 'Compatibility-Report.md');
+export async function diffCommand(base: string, compare: string, opts: any) {
+    if (!base || !compare) {
+        throw new Error('Usage: storage-spec diff <base spec> <spec to diff>');
+    }
+    const baselinePath = path.resolve(process.cwd(), base);
+    const compatiblePath = path.resolve(process.cwd(), compare);
+    const outputPath = opts.output ? path.resolve(process.cwd(), opts.output) : path.resolve(process.cwd(), 'Compatibility-Report.md');
 
     if (!existsSync(baselinePath)) {
         throw new Error(`Baseline model not found at ${baselinePath}`);
