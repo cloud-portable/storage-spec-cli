@@ -6,8 +6,8 @@
 
 The tool divides the specification lifecycle into four simple stages:
 
-1. **`bootstrap`**: Extracts a barebones, 100% reproducible baseline Smithy AST from the canonical AWS S3 spec using a declarative YAML tier recipe.
-2. **`compile`**: Combines the barebones Smithy AST with curated Markdown documentation overrides to output documented Smithy AST and OpenAPI spec files.
+1. **`bootstrap`**: Extract a filtered Smithy AST from the canonical AWS S3 spec.
+2. **`compile`**: Combine the Smithy AST with Markdown docs to output documented Smithy AST and OpenAPI spec files.
 3. **`test`**: Runs containerized conformance tests against a S3-compatible target, outputting a standard JUnit XML report and execution metadata.
 4. **`diff`**: Compares any two Smithy AST profiles (e.g. AWS vs Portable Spec, or Portable Spec vs Provider Spec) to generate markdown compatibility/drift reports.
 
